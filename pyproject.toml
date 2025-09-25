@@ -1,0 +1,53 @@
+[project]
+name = "gait_ml"
+version = "0.1.0"
+description = "A Python package for gait analysis using machine learning."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Your Name", email = "your.email@example.com" },
+]
+keywords = ["gait", "machine learning", "python", "pytorch", "data analysis"]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "numpy>=1.20",
+    "pandas",
+    "scipy",
+    "plotly",
+    "xlrd",
+    "tensorboard",
+    "matplotlib",
+    "torch",
+    "pytorch-lightning",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "TCH", "D"]
+ignore = ["D100", "D104", "D107"]
+
+[tool.ruff.format]
+line-length = 120
+
+[tool.mypy]
+strict = true

@@ -1,0 +1,96 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+.env
+.venv
+*.egg-info/
+*.egg
+build/
+dist/
+*.manifest
+*.spec
+
+# Pytest cache
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# PyCharm project files
+.idea/
+
+# VS Code settings
+.vscode/
+
+# Logs
+*.log
+*.txt
+*.out
+*.err
+
+# Data files
+*.csv
+*.dat
+*.pkl
+*.h5
+*.json
+*.db
+*.sqlite3
+
+# TensorBoard logs
+logs/
+
+# PyTorch Lightning checkpoints
+lightning_logs/
+
+# Model weights
+*.ckpt
+*.pth
+*.pt
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.orig
+
+# Ignore environment variables
+.env
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.cache
+.nox
+
+# Ignore mypy cache
+.mypy_cache/
+
+# Ignore profiling data
+.prof
+
+# Ignore pipenv files
+Pipfile.lock
+
+# Ignore tox files
+.tox/
+
+# Ignore wheel files
+*.whl
