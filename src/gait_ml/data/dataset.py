@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
+import bisect
 
 from scipy.signal import find_peaks, butter, sosfiltfilt
 
@@ -16,15 +17,9 @@ class GaitDataset(Dataset):
         expand_labels=0,
         acc_sheet_name="Accelerometer",
         gyr_sheet_name="Gyroscope",
-        zscale=True,
     ):
         """
         GaitDataset is a PyTorch Dataset class for loading and processing gait data from CSV files.
-
-        Args:
-            csv_files (str or list): Path(s) to the CSV file(s) containing IMU data.
-            window_size (int): Length of each input sequence window.
-            step_size (int): Step size for sliding window.
         """
         self.csv_files = csv_files
         self.window_size = window_size
@@ -32,7 +27,6 @@ class GaitDataset(Dataset):
         self.expand_labels = expand_labels
         self.acc_sheet_name = acc_sheet_name
         self.gyr_sheet_name = gyr_sheet_name
-        self.zscale = zscale
 
         # Load data from CSV files
         self.data = self._load_data()
@@ -81,7 +75,12 @@ class GaitDataset(Dataset):
             hs_search_windows = np.diff(ms_peaks)
             detected_heel_strikes = []
             detected_toe_offs = []
-            for cur_peak, cur_search_window in zip(ms_peaks, hs_search_windows):
+            for idx in np.arange(len(ms_peaks)):
+                cur_peak = ms_peaks[idx]
+                if idx == len(ms_peaks) - 1:
+                    cur_search_window = hs_search_windows[idx - 1]
+                else:
+                    cur_search_window = hs_search_windows[idx]
                 try:
                     cur_crop = arr_gyr[cur_peak : cur_peak + cur_search_window, 2]
                     cur_hs = find_peaks(-cur_crop, height=0)[0][0] + cur_peak
@@ -92,10 +91,51 @@ class GaitDataset(Dataset):
                     # cur_to = ZP_idx
                     # cur_to += cur_peak
                     detected_toe_offs.append(cur_to.astype(int))
+
+                    # Make sure the last event is HeelStrike
+                    if idx == len(ms_peaks) - 1:
+                        if detected_toe_offs[-1] > detected_heel_strikes[-1]:
+                            detected_toe_offs = detected_toe_offs[:-1]
                 except Exception as ERROR:
                     print(
                         f"Skipping: {cur_peak}:{cur_peak + cur_search_window} | {ERROR}"
                     )
+            ####################################################################################
+            #### Manual correction of labels
+            ####################################################################################
+            if "10_1_2mW_IPhone.xls" in file:
+                # Remove the first detected toe-off and heel-strike
+                detected_toe_offs = detected_toe_offs[1:]
+                detected_heel_strikes = detected_heel_strikes[1:]
+
+            if "18_1_2mW_IPhone.xls" in file:
+                item_idx = detected_toe_offs.index(9732)
+                detected_toe_offs[item_idx] = detected_toe_offs[item_idx] - 10
+
+            if "25_1_2mW_IPhone.xls" in file:
+                for idx_ in [4471, 7566]:
+                    curr_item_idx = detected_toe_offs.index(idx_)
+                    detected_toe_offs[curr_item_idx] = (
+                        detected_toe_offs[curr_item_idx] - 10
+                    )
+            if "28_1_2mW_IPhone.xls" in file:
+                item_idx = detected_toe_offs.index(9927)
+                detected_toe_offs[item_idx] = detected_toe_offs[item_idx] - 10
+
+            if "32_1_2mW_IPhone.xls" in file:
+                item_idx = detected_toe_offs.index(11269)
+                detected_toe_offs[item_idx] = detected_toe_offs[item_idx] - 10
+
+            if "33_1_2mW_IPhone.xls" in file:
+                for idx_ in [2640, 3581]:
+                    bisect.insort(detected_heel_strikes, idx_)
+
+                for idx_ in [2597, 3535]:
+                    bisect.insort(detected_toe_offs, idx_)
+
+            ####################################################################################
+            #### End of manual correction of labels
+            ####################################################################################
 
             # Combine features and labels
             labels = np.zeros(arr_gyr.shape[0]).astype(int)
@@ -115,9 +155,10 @@ class GaitDataset(Dataset):
             final_array = np.concatenate(
                 [filtered_arr, np.expand_dims(labels, 1)], axis=1
             )
-            print("filtered_arr shape:", filtered_arr.shape)
-            print("final_array shape:", final_array.shape)
+            # print("filtered_arr shape:", filtered_arr.shape)
+            # print("final_array shape:", final_array.shape)
 
+            # list_of_arrays.append(final_array)
             # Sliding window
             window_size = self.window_size
             stride = self.step_size
@@ -130,30 +171,41 @@ class GaitDataset(Dataset):
             print("cropped_array shape:", cropped_arrays.shape)
             list_of_arrays.append(cropped_arrays)
 
-        # Concatenate all arrays from different files
+        # # Concatenate all arrays from different files
         all_arrays = np.concatenate(list_of_arrays, axis=0)
         print("all_arrays shape:", all_arrays.shape)
 
         # Standardize the first three channels (x, y, z) of the IMU data and keep the labels intact
-        if self.zscale:
-            zscaled_data = (
-                all_arrays[:, :, :3] - all_arrays[:, :, :3].mean((0, 1))
-            ) / all_arrays[:, :, :3].std((0, 1))
-            all_arrays = np.concatenate([zscaled_data, all_arrays[:, :, 3:]], axis=-1)
+        # if self.zscale:
+        #     zscaled_data = (
+        #         all_arrays[:, :, :3] - all_arrays[:, :, :3].mean((0, 1))
+        #     ) / all_arrays[:, :, :3].std((0, 1))
+        #     all_arrays = np.concatenate([zscaled_data, all_arrays[:, :, 3:]], axis=-1)
         return all_arrays
 
     def __len__(self):
         return self.data.shape[0]
 
     def __getitem__(self, idx):
-        input_seq = self.data[idx, :, :-1]
-        labels = self.data[idx, :, -1].astype(int)  # shape: (window_size,)
-        # One-hot encode labels
-        num_classes = int(self.data[:, :, -1].max()) + 1  # assumes labels are 0-indexed
-        labels_onehot = torch.nn.functional.one_hot(
-            torch.tensor(labels), num_classes=num_classes
-        ).float()
-        return torch.tensor(input_seq, dtype=torch.float32), labels_onehot
+        # input_seq = self.data[idx]
+        # labels = self.data_label[idx]
+        # final_array = np.concatenate([input_seq, np.expand_dims(labels, 1)], axis=1)
+
+        # # Sliding window
+        # window_size = self.window_size
+        # stride = self.step_size
+        # num_dims = 7
+        # windows = np.lib.stride_tricks.sliding_window_view(
+        #     input_seq, window_shape=(window_size, num_dims)
+        # )
+
+        # cropped_arrays = windows[::stride, 0, :, :]
+        input_features = self.data[idx, :, :-1]
+        output_labels = self.data[idx, :, -1]
+        return (
+            torch.tensor(input_features, dtype=torch.float32),
+            torch.tensor(output_labels, dtype=torch.long),
+        )
 
 
 if __name__ == "__main__":
