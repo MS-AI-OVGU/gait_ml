@@ -1,0 +1,39 @@
+# Configuration file for training models
+
+# General settings
+general:
+  project_name: "backpain"
+  data_path: "/home/geromevivar/projects/spine_interaction/data/dataset2/10092025/imu/Mobilephone/Termin_1_Vicon/ID_*_T1/*_1_2mW_IPhone.xls"
+  group_file: "/home/geromevivar/projects/gait_ml/data/processed/groups.csv"
+  n_splits: 5
+  random_state: 42
+
+# Data settings
+data:
+  window_size: 256
+  step_size: 128
+  batch_size: 256
+  expand_labels: 1
+  acc_sheet_name: "Linear Accelerometer"
+  num_workers: 16
+
+# Model settings
+model:
+  input_dim: 6
+  output_dim: 3
+  hidden_dim: 64
+  num_layers: 2
+  dropout_prob: 0.5
+  learning_rate: 0.001
+  teacher_forcing_ratio: 0.5
+
+# Training settings
+training:
+  num_epochs: 250
+  accelerator: "gpu"
+  devices: 1
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  save_top_k: 3
+  monitor_metric: "val_f1score"
+  monitor_mode: "max"

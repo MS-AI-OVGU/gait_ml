@@ -145,11 +145,29 @@ class GaitDataset(Dataset):
             # Add labels before and after events
             if self.expand_labels > 0:
                 for i in range(1, self.expand_labels + 1):
-                    labels[list(np.array(detected_heel_strikes) + i)] = 1
-                    labels[list(np.array(detected_heel_strikes) - i)] = 1
-                    labels[list(np.array(detected_toe_offs) + i)] = 2
-                    labels[list(np.array(detected_toe_offs) - i)] = 2
+                    # labels[list(np.array(detected_heel_strikes) + i)] = 1
+                    # labels[list(np.array(detected_heel_strikes) - i)] = 1
+                    # labels[list(np.array(detected_toe_offs) + i)] = 2
+                    # labels[list(np.array(detected_toe_offs) - i)] = 2
+                    # Ensure indices are within bounds for heel strikes
+                    valid_indices_plus = np.array(detected_heel_strikes) + i
+                    valid_indices_minus = np.array(detected_heel_strikes) - i
+                    valid_indices_plus = valid_indices_plus[
+                        valid_indices_plus < len(labels)
+                    ]
+                    valid_indices_minus = valid_indices_minus[valid_indices_minus >= 0]
+                    labels[valid_indices_plus] = 1
+                    labels[valid_indices_minus] = 1
 
+                    # Ensure indices are within bounds for toe offs
+                    valid_indices_plus = np.array(detected_toe_offs) + i
+                    valid_indices_minus = np.array(detected_toe_offs) - i
+                    valid_indices_plus = valid_indices_plus[
+                        valid_indices_plus < len(labels)
+                    ]
+                    valid_indices_minus = valid_indices_minus[valid_indices_minus >= 0]
+                    labels[valid_indices_plus] = 2
+                    labels[valid_indices_minus] = 2
             self.raw_y.append(labels)
 
             final_array = np.concatenate(
