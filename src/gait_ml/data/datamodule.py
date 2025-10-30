@@ -52,6 +52,16 @@ class GaitDataModule(L.LightningDataModule):
                 gyr_sheet_name="Gyroscope",
             )
 
+        if stage == "val" and self.val_idx is not None:
+            self.val_dataset = GaitDataset(
+                csv_files=self.all_files[self.val_idx],
+                window_size=self.window_size,
+                step_size=self.window_size,
+                expand_labels=self.expand_labels,
+                acc_sheet_name=self.acc_sheet_name,
+                gyr_sheet_name="Gyroscope",
+            )
+
         if stage == "test" and self.test_idx is not None:
             self.test_dataset = GaitDataset(
                 csv_files=self.all_files[self.test_idx],

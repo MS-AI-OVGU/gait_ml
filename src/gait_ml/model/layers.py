@@ -62,6 +62,57 @@ class Encoder(nn.Module):
         return outputs, hidden
 
 
+class CNNEncoder(nn.Module):
+    """
+    The CNNEncoder processes the input sequence using 1D convolutional layers
+    and produces a feature map for sequence modeling.
+    """
+
+    def __init__(self, input_dim, hidden_dim, num_layers, kernel_size, dropout_prob):
+        """
+        Args:
+            input_dim (int): Number of input features per timestep.
+            hidden_dim (int): Number of output channels for each convolutional layer.
+            num_layers (int): Number of convolutional layers.
+            kernel_size (int): Size of the convolutional kernel.
+            dropout_prob (float): Dropout probability for regularization.
+        """
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+
+        layers = []
+        for i in range(num_layers):
+            in_channels = input_dim if i == 0 else hidden_dim
+            layers.append(
+                nn.Conv1d(
+                    in_channels=in_channels,
+                    out_channels=hidden_dim,
+                    kernel_size=kernel_size,
+                    padding=kernel_size // 2,  # Keep the sequence length the same
+                )
+            )
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout_prob))
+
+        self.cnn = nn.Sequential(*layers)
+
+    def forward(self, src):
+        """
+        Args:
+            src (torch.Tensor): Input tensor of shape (batch_size, seq_len, input_dim).
+
+        Returns:
+            outputs (torch.Tensor): Output features of shape (batch_size, seq_len, hidden_dim).
+        """
+        # Convert (batch_size, seq_len, input_dim) -> (batch_size, input_dim, seq_len)
+        src = src.permute(0, 2, 1)
+        outputs = self.cnn(src)
+        # Convert back to (batch_size, seq_len, hidden_dim)
+        outputs = outputs.permute(0, 2, 1)
+        return outputs
+
+
 class Seq2Seq(nn.Module):
     """
     The complete Sequence-to-Sequence model combining Encoder and Decoder.
