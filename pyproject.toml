@@ -28,7 +28,10 @@ dependencies = [
     "tensorboard",
     "matplotlib",
     "torch",
-    "pytorch-lightning",
+    "lightning",
+    "wandb",
+    "scikit-learn",
+    "hydra-core",
 ]
 
 [build-system]
