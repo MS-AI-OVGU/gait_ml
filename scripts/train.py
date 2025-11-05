@@ -26,7 +26,7 @@ def main(config: DictConfig):
 
     ids = [int(i.split("/")[-1].split("_")[0]) for i in all_files]
     group_df = pd.read_csv(config.general.group_file, index_col="ID")
-    group_df.columns = ["group", "status"]
+    group_df.columns = ["group"]
     group_df = group_df[group_df.group.notna()]
     group_df.replace("h", 0, inplace=True)
     group_df.replace("p", 1, inplace=True)
@@ -88,7 +88,7 @@ def main(config: DictConfig):
 
         current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         run_name = (
-            f"Fold{fold + 1}-GRU-expandlabel{config.data.expand_labels}_{current_time}"
+            f"RerunExp-Fold{fold + 1}-GRU-expandlabel{config.data.expand_labels}_{current_time}"
         )
         wandb_logger = WandbLogger(
             project=config.general.project_name,
