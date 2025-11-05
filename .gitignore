@@ -99,5 +99,6 @@ backpain/
 multirun/
 wandb/
 data/
+outputs/
 
 *.npz
