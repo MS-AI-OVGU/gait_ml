@@ -98,7 +98,7 @@ Pipfile.lock
 backpain/
 multirun/
 wandb/
-data/
+/data
 outputs/
 
 *.npz

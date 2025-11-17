@@ -74,6 +74,7 @@ def main(config: DictConfig):
             expand_labels=config.data.expand_labels,
             acc_sheet_name=config.data.acc_sheet_name,
             num_workers=config.data.num_workers,
+            zscale=config.data.zscale,
         )
 
         model = LitSeq2Seq(
@@ -87,9 +88,7 @@ def main(config: DictConfig):
         )
 
         current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        run_name = (
-            f"RerunExp-Fold{fold + 1}-GRU-expandlabel{config.data.expand_labels}_{current_time}"
-        )
+        run_name = f"ZscaledRerunExp4-Fold{fold + 1}-GRU-expandlabel{config.data.expand_labels}_{current_time}"
         wandb_logger = WandbLogger(
             project=config.general.project_name,
             name=run_name,

@@ -5,6 +5,7 @@ general:
   project_name: "backpain"
   # data_path: "/home/geromevivar/projects/spine_interaction/data/dataset2/10092025/imu/Mobilephone/Termin_1_Vicon/ID_*_T1/*_1_2mW_IPhone.xls"
   data_path: "/home/qivy00li/projects/gait_ml/data/dataset2/10092025/imu/Mobilephone/Termin_1_Vicon/ID_*_T1/*_1_2mW_IPhone.xls"
+  # data_path: "/home/qivy00li/projects/gait_ml/data/dataset2/10092025/imu/Mobilephone/Termin_2_Vicon/ID_*_T2/*_2_2mW_IPhone.xls"
   # group_file: "/home/geromevivar/projects/gait_ml/data/processed/groups.csv"
   group_file: "/home/qivy00li/projects/gait_ml/data/processed/group.csv"
   n_splits: 5
@@ -15,9 +16,10 @@ data:
   window_size: 256
   step_size: 128
   batch_size: 256
-  expand_labels: 1
+  expand_labels: 2
   acc_sheet_name: "Linear Accelerometer"
   num_workers: 8
+  zscale: true
 
 # Model settings
 model:
