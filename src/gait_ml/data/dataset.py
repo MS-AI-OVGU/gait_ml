@@ -226,6 +226,221 @@ class GaitDataset(Dataset):
         )
 
 
+
+class TrunkDataset(Dataset):
+
+    label_map = {
+        'left': 0,
+        'right': 1,
+        'ant': 2,
+        'post': 3
+    }
+    def __init__(self, xls_files:list, flexion_type: str, acc_sheet_name: str = "Accelerometer", fs: float = 100.0, cutoff: float = 10):
+        
+        if flexion_type not in self.label_map:
+            raise ValueError(f"Unknown flexion_type: {flexion_type}")
+
+        self.xls_files = xls_files
+        self.flexion_type = flexion_type #left #right #ant #post
+        self.acc_sheet_name = acc_sheet_name
+        self.fs = fs
+        self.cutoff = cutoff
+        self.data, self.file_offsets = self._load_data()
+        self.label = self.label_map[flexion_type]
+
+    def _load_data(self):
+        list_of_arrays = []
+        file_offsets = []
+        cursor = 0
+
+        self.raw_mag = []
+        self.raw_acc = []
+        self.raw_gyr = []
+        self.raw_x = []
+        self.raw_y = []
+
+        for file in self.xls_files:
+            if file.endswith(".xls"):  
+                df_mag = pd.read_excel(file, sheet_name="Accelerometer")      
+                df_acc = pd.read_excel(file, sheet_name="Linear Accelerometer")
+                df_gyr = pd.read_excel(file, sheet_name="Gyroscope")                
+            else:
+                raise ValueError("Unsupported file format. Please provide an Excel file.")
+        
+            # Rename columns
+            df_mag = df_mag.rename(columns={
+                df_mag.columns[0]: 'time',
+                df_mag.columns[1]: 'acc_x',
+                df_mag.columns[2]: 'acc_y',
+                df_mag.columns[3]: 'acc_z'})
+            df_acc = df_acc.rename(columns={
+                df_acc.columns[0]: 'time',
+                df_acc.columns[1]: 'acc_x',
+                df_acc.columns[2]: 'acc_y',
+                df_acc.columns[3]: 'acc_z'})
+            df_gyr = df_gyr.rename(columns={
+                df_gyr.columns[0]: 'time',
+                df_gyr.columns[1]: 'gyr_x',
+                df_gyr.columns[2]: 'gyr_y',
+                df_gyr.columns[3]: 'gyr_z'})
+
+            self.raw_mag.append(df_mag.iloc[:,1:].values)
+            self.raw_acc.append(df_acc.iloc[:,1:].values)
+            self.raw_gyr.append(df_gyr.iloc[:,1:].values)
+
+            # --- Merge sheets depending on accelerometer type
+            if self.acc_sheet_name == "Linear Accelerometer":
+                df_merged = pd.merge(df_acc, df_gyr, on='time', how='inner')
+            elif self.acc_sheet_name == "Accelerometer":
+                df_merged = pd.merge_asof(df_mag.sort_values("time"),
+                                          df_gyr.sort_values("time"),
+                                          on="time", 
+                                          direction="nearest", 
+                                          tolerance=0.02 # 20 ms tolerance for 100 Hz data
+                                          )
+            else:
+                raise ValueError(f"Unknown acc_sheet_name: {self.acc_sheet_name}")
+            
+            arr_gyr = df_merged.iloc[:, 1:].values
+            self.raw_x.append(arr_gyr)
+
+             # Filtering: acc and gyr
+            sos = butter(4, 10, btype="lowpass", fs=100, output="sos")
+            acc = np.stack([sosfiltfilt(sos, df_merged[c].values) for c in ['acc_x','acc_y','acc_z']], axis=-1)
+            gyr = np.stack([sosfiltfilt(sos, df_merged[c].values) for c in ['gyr_x','gyr_y','gyr_z']], axis=-1)
+
+             # Channel-wise normalization (acc + gyr, shape Nx6)
+            signals = np.concatenate([acc, gyr], axis=-1)
+            list_of_arrays.append(signals)
+
+            # --- Track file offsets
+            N = len(signals)
+            file_offsets.append((cursor, cursor + N))
+            cursor += N
+        
+        all_arrays = np.concatenate(list_of_arrays, axis=0)
+        return all_arrays, file_offsets
+    
+    def get_file_data(self, idx):
+        """Return preprocessed data for one specific file index."""
+        start, end = self.file_offsets[idx]
+        return self.data[start:end, :]
+    
+    def __len__(self):
+        return self.data.shape[0]
+    
+    def __getitem__(self, idx):
+        x = self.data[idx, :]
+        sample = torch.from_numpy(x).float()
+        label = torch.tensor(self.label, dtype=torch.long)
+        return sample, label
+
+
+class SitToStandDataset(Dataset):
+    
+    def __init__(self, xls_files:list, label: str,  acc_sheet_name="Linear Accelerometer", fs: float = 100.0, cutoff: float = 10):
+
+        self.xls_files = xls_files
+        self.acc_sheet_name = acc_sheet_name
+        self.fs = fs
+        self.cutoff = cutoff
+        self.label = label
+        self.data, self.file_offsets  = self._load_data()
+
+    def _load_data(self):
+        list_of_arrays = []
+        file_offsets = []
+        cursor = 0
+
+        self.raw_mag = []
+        self.raw_acc = []
+        self.raw_gyr = []
+        
+        self.raw_x = []
+        self.raw_y = []
+
+        for file in self.xls_files:
+            if file.endswith(".xls"):  
+                df_mag = pd.read_excel(file, sheet_name="Accelerometer")      
+                df_acc = pd.read_excel(file, sheet_name="Linear Accelerometer")
+                df_gyr = pd.read_excel(file, sheet_name="Gyroscope")                
+            else:
+                raise ValueError("Unsupported file format. Please provide an Excel file.")
+        
+            # Rename columns
+            df_mag = df_mag.rename(columns={
+                df_mag.columns[0]: 'time',
+                df_mag.columns[1]: 'acc_x',
+                df_mag.columns[2]: 'acc_y',
+                df_mag.columns[3]: 'acc_z'})
+            df_acc = df_acc.rename(columns={
+                df_acc.columns[0]: 'time',
+                df_acc.columns[1]: 'acc_x',
+                df_acc.columns[2]: 'acc_y',
+                df_acc.columns[3]: 'acc_z'})
+            df_gyr = df_gyr.rename(columns={
+                df_gyr.columns[0]: 'time',
+                df_gyr.columns[1]: 'gyr_x',
+                df_gyr.columns[2]: 'gyr_y',
+                df_gyr.columns[3]: 'gyr_z'})
+            #convert radians to degrees
+            df_gyr[['gyr_x','gyr_y','gyr_z']] = df_gyr[['gyr_x','gyr_y','gyr_z']] * 180.0 / np.pi
+
+            self.raw_mag.append(df_mag.iloc[:,1:].values)
+            self.raw_acc.append(df_acc.iloc[:,1:].values)
+            self.raw_gyr.append(df_gyr.iloc[:,1:].values)
+
+            if self.acc_sheet_name == "Linear Accelerometer":
+                # NOTE: Merge on time for linear acceleration and gyroscop
+                df_merged = pd.merge(df_acc, df_gyr, on='time', how='inner')
+
+            elif self.acc_sheet_name == "Accelerometer":
+                # NOTE: Merge on time for acceleration (with g) and gyroscope.
+                df_merged = pd.merge_asof(df_mag.sort_values("time"),
+                                    df_gyr.sort_values("time"),
+                                    on="time",
+                                    direction="nearest",
+                                    tolerance=0.02  # 20 ms tolerance for 100 Hz data
+                                    )
+            else:
+                raise ValueError(f"Unknown acc_sheet_name: {self.acc_sheet_name}")
+            
+            arr_raw = df_merged.iloc[:, 1:].values
+            self.raw_x.append(arr_raw)
+
+             # Filtering: acc and gyr
+            sos = butter(3, 5, btype="lowpass", fs=100, output="sos")
+            acc = np.stack([sosfiltfilt(sos, df_merged[c].values) for c in ['acc_x','acc_y','acc_z']], axis=-1)
+            gyr = np.stack([sosfiltfilt(sos, df_merged[c].values) for c in ['gyr_x','gyr_y','gyr_z']], axis=-1)
+
+            # Channel-wise normalization (acc + gyr, shape Nx6)
+            signals = np.concatenate([acc, gyr], axis=-1)
+
+            list_of_arrays.append(signals)
+            
+            # Track offsets
+            N = len(signals)
+            file_offsets.append((cursor, cursor+N))  # <-- store start/end
+            cursor += N
+                   
+        all_arrays = np.concatenate(list_of_arrays, axis=0)
+        return all_arrays, file_offsets
+    
+    def get_file_data(self, idx):
+        """Return preprocessed data for one file."""
+        start, end = self.file_offsets[idx]
+        return self.data[start:end, :]
+    
+    def __len__(self):
+        return self.data.shape[0]
+    
+    def __getitem__(self, idx):
+        x = self.data[idx, :]
+        sample = torch.from_numpy(x).float()
+        label = self.label
+        return sample, label
+    
+    
 if __name__ == "__main__":
     # Example usage for GaitDataset
     xls_files = glob("/home/qivy00li/projects/spine_interaction/data/raw/train/*.xls")
