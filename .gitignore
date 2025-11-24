@@ -98,7 +98,8 @@ Pipfile.lock
 backpain/
 multirun/
 wandb/
-data/
+/data/
+!/src/gait_ml/data/
 outputs/
 
 *.npz
