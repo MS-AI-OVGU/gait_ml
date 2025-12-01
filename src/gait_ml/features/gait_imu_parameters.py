@@ -139,34 +139,16 @@ def get_gait_features(xls_files,
             cur_df["file"] = Path(file_path).stem
             all_spatial_df.append(cur_df)
 
-            # -----------------------------------------------------
-            # --- Gait features ---
-            # -----------------------------------------------------
-            indices = np.nonzero(cur_labels == 1)[0]
-
-            results = utils.calculate_gait_feat_from_imu(acc_data, gyr_data, indices, sampling_rate=sampling_rate_hz)
-
-            mean_stride_length = np.mean(results["stride_lengths"])
-            mean_gait_velocity = np.mean(results["gait_velocities"])
-
-            all_subjects_results.append({
-                "file": Path(file_path).stem,
-                "mean_stride_length": mean_stride_length,
-                "mean_gait_velocity": mean_gait_velocity
-            })
-
-            print(f"✅ {Path(file_path).name}: "
-                f"Stride Length = {mean_stride_length:.2f} m, "
-                f"Gait Velocity = {mean_gait_velocity:.2f} m/s")
-
     # -----------------------------------------------------
-    # COMBINE RESULTS
+    # COMBINE SPATIAL RESULTS
     # -----------------------------------------------------
-    df_summary_t1 = pd.DataFrame(all_subjects_results)
-    df_spatial_t1 = pd.concat(all_spatial_df, ignore_index=True)
+    if len(all_spatial_df) == 0:
+        df_spatial_t1 = pd.DataFrame()
+    else:
+        df_spatial_t1 = pd.concat(all_spatial_df, ignore_index=True)
 
     print("\n✅ All files processed successfully!")
-    return df_summary_t1, df_spatial_t1
+    return df_spatial_t1
 
 
 def compute_gait_imu_parameters(
@@ -218,7 +200,7 @@ def compute_gait_imu_parameters(
 
         try:
             # ---- Call existing detailed function ----
-            df_summary, df_spatial = get_gait_features(
+            df_spatial = get_gait_features(
                 [file_path],
                 window_size,
                 step_size,
@@ -227,38 +209,31 @@ def compute_gait_imu_parameters(
                 analyze_first_10_strides
             )
 
-            # df_summary → mean stride length & velocity
-            # df_spatial → spatial params from gaitmap
-
             gait_row = {
                 "id": subject_id,
                 "file": Path(file_path).name,
             }
 
-            # Add summary features
-            if len(df_summary):
+            if len(df_spatial):
+                # Use gaitmap spatial parameters for both "summary" and "spatial" outputs
+                mean_stride_length = float(df_spatial["stride length [m]"].mean())
+                mean_gait_velocity = float(df_spatial["gait velocity [m/s]"].mean())
+                max_sensor_lift = float(df_spatial["max. sensor lift [m]"].mean())
+
                 gait_row.update({
-                    "mean_stride_length [m]": float(df_summary["mean_stride_length"].values[0]),
-                    "mean_gait_velocity [m/s]": float(df_summary["mean_gait_velocity"].values[0]),
+                    "mean_stride_length [m]": mean_stride_length,
+                    "mean_gait_velocity [m/s]": mean_gait_velocity,
+                    "stride_length_spatial [m]": mean_stride_length,
+                    "gait_velocity_spatial [m/s]": mean_gait_velocity,
+                    "max_sensor_lift [m]": max_sensor_lift,
                 })
             else:
                 gait_row.update({
                     "mean_stride_length [m]": np.nan,
                     "mean_gait_velocity [m/s]": np.nan,
-                })
-
-            # Add spatial parameters (avg per subject)
-            if len(df_spatial):
-                gait_row.update({
-                    "max_sensor_lift [m]": float(df_spatial["max. sensor lift [m]"].mean()),
-                    "stride_length_spatial [m]": float(df_spatial["stride length [m]"].mean()),
-                    "gait_velocity_spatial [m/s]": float(df_spatial["gait velocity [m/s]"].mean()),
-                })
-            else:
-                gait_row.update({
-                    "max_sensor_lift [m]": np.nan,
                     "stride_length_spatial [m]": np.nan,
                     "gait_velocity_spatial [m/s]": np.nan,
+                    "max_sensor_lift [m]": np.nan,
                 })
 
             results.append(gait_row)
