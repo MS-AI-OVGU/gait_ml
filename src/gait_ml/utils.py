@@ -117,7 +117,13 @@ def lins_ccc(x, y):
 
 
 def plot_bland_altman_publication(
-    method1, method2, method1_name="IMU", method2_name="VICON", units="°", ax=None
+    method1,
+    method2,
+    method1_name="IMU",
+    method2_name="VICON",
+    units="°",
+    ax=None,
+    filename="bland_altman_plot.pdf",
 ):
     """
     Creates a publication-ready Bland-Altman plot with easily modifiable fonts.
@@ -127,10 +133,10 @@ def plot_bland_altman_publication(
     # Easily modify all font sizes here
     font_sizes = {
         "main": 18,  # Base font size
-        "axes_label": 18,  # X and Y axis labels
-        "tick_label": 18,  # X and Y tick numbers
-        "metrics_box": 18,  # RMSE, MAE, CCC box
-        "line_label": 18,  # Bias and LoA line labels
+        "axes_label": 25,  # X and Y axis labels
+        "tick_label": 25,  # X and Y tick numbers
+        "metrics_box": 20,  # RMSE, MAE, CCC box
+        "line_label": 20,  # Bias and LoA line labels
     }
     # --- END MODIFICATION ---
 
@@ -168,6 +174,7 @@ def plot_bland_altman_publication(
 
     # --- 4. Create the Plot ---
     if ax is None:
+        # fig, ax = plt.subplots(figsize=(10, 6))
         fig, ax = plt.subplots(figsize=(10, 6))
 
     # Scatter plot
@@ -190,7 +197,7 @@ def plot_bland_altman_publication(
     # --- 5. Add Metrics Text Box ---
     text_str = f"RMSE: {rmse:.3f}\nMAE: {mae:.3f}\nLin's CCC: {ccc:.3f}"
     props = dict(
-        boxstyle="round", facecolor="white", edgecolor="black", alpha=0.9, lw=1
+        boxstyle="round", facecolor="white", edgecolor="black", alpha=0.6, lw=1
     )
     ax.text(
         0.95,
@@ -208,12 +215,14 @@ def plot_bland_altman_publication(
 
     # Use axes label size
     ax.set_xlabel(
-        f"Average of {method1_name} and {method2_name} ({units})",
+        # f"Average of {method1_name} and {method2_name} ({units})",
+        r"Mean Stance Proportion" + f"{units}",
         fontsize=font_sizes["axes_label"],
         fontweight="bold",
     )
     ax.set_ylabel(
-        f"Difference ({method1_name} - {method2_name}) ({units})",
+        # f"Difference (New-Reference){method1_name} and {method2_name} ({units})",
+        r"$\Delta$ Stance Proportion" + f"{units}",
         fontsize=font_sizes["axes_label"],
         fontweight="bold",
     )
@@ -264,6 +273,7 @@ def plot_bland_altman_publication(
     )
 
     plt.tight_layout()
+    plt.savefig(filename, dpi=600, bbox_inches="tight", transparent=False)
 
     return fig, ax
 
@@ -271,48 +281,21 @@ def plot_bland_altman_publication(
 def plot_confusion_matrix(
     cm,
     class_names,
-    title,
-    fmt,
-    cbar_label,
+    title=None,
+    fmt="d",
+    cbar_label="Count",
     cmap=plt.cm.Blues,
-    file_name="confusion_matrix.png",
-    normalize=None,
+    file_name="confusion_matrix.pdf",
 ):
     """
-    Plots a confusion matrix heatmap.
-
-    Args:
-        cm (np.array): The confusion matrix (absolute counts).
-        class_names (list): List of class names for labels.
-        title (str): Title of the plot.
-        fmt (str): Format string for annotations (e.g., 'd' for counts, '.2f' for percentages).
-        cbar_label (str): Label for the color bar (if cbar is True).
-        cmap (plt.cm): Matplotlib colormap.
-        file_name (str): Name to save the figure.
-        normalize (str, optional): Normalization type.
-                                   'true' (row-wise, Recall),
-                                   'pred' (column-wise, Precision),
-                                   'all' (total counts).
-                                   Defaults to None (absolute counts).
+    Plots a publication-ready confusion matrix for JNER.
     """
 
-    # --- 1. Normalization Logic ---
-    if normalize == "true":
-        # Normalize by True Label counts (Rows sum to 1.0)
-        # Sum along axis 1 (rows) and tile to match the shape of cm
-        cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
-    elif normalize == "pred":
-        # Normalize by Predicted Label counts (Columns sum to 1.0)
-        # Sum along axis 0 (columns)
-        cm = cm.astype("float") / cm.sum(axis=0)
-    elif normalize == "all":
-        # Normalize by the grand total
-        cm = cm.astype("float") / cm.sum()
+    # 1. Set JNER-compliant font (Arial/Helvetica is standard)
+    plt.rcParams["font.family"] = "sans-serif"
+    plt.rcParams["font.sans-serif"] = ["Arial", "Helvetica", "DejaVu Sans"]
 
-    # Handle NaN values that result from dividing by zero (empty classes)
-    cm = np.nan_to_num(cm)
-
-    # --- 2. Plotting ---
+    # 2. Size: 3.5 inches is standard for single-column width (85-90mm)
     fig, ax = plt.subplots(figsize=(5, 5))
 
     sns.heatmap(
@@ -320,31 +303,44 @@ def plot_confusion_matrix(
         annot=True,
         fmt=fmt,
         cmap=cmap,
-        linewidths=0.5,
+        linewidths=1.0,  # Thicker lines for better separation in print
         linecolor="black",
-        cbar=False,
-        # cbar_kws={'label': cbar_label, 'orientation': 'vertical', 'pad': 0.04, 'aspect': 30},
-        annot_kws={"fontsize": 16, "fontweight": "bold"},
+        cbar=False,  # Disable colorbar if numbers are annotated (saves space)
+        annot_kws={
+            "fontsize": 18,
+            "fontweight": "bold",
+        },  # Large font for readability when resized
         ax=ax,
         square=True,
     )
 
-    # --- 3. Labels and Ticks (Unchanged) ---
-    ax.set_title(title, fontsize=12, fontweight="bold", pad=5)
-    ax.set_ylabel("True Label", fontsize=20, fontweight="medium")
-    ax.set_xlabel("Predicted Label", fontsize=20, fontweight="medium")
+    # 3. Titles: JNER prefers titles in the caption, not the image.
+    # Only set if strictly necessary for internal use.
+    if title:
+        ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
 
+    # 4. Axis Labels: Clear and large
+    ax.set_ylabel("True Event", fontsize=18, fontweight="bold")
+    ax.set_xlabel("Predicted Event", fontsize=18, fontweight="bold")
+
+    # 5. Ticks: Center them and ensure readability
     tick_marks = np.arange(len(class_names))
     ax.set_xticks(tick_marks + 0.5)
     ax.set_yticks(tick_marks + 0.5)
-    ax.set_xticklabels(class_names, fontsize=16)
-    ax.set_yticklabels(class_names, fontsize=16, rotation=90, va="center")
 
-    ax.set_ylim(len(class_names), 0)
+    ax.set_xticklabels(class_names, fontsize=16, fontweight="medium")
+    # CHANGED: Rotation 0 is better for short labels like "IC/FO"
+    ax.set_yticklabels(
+        class_names, fontsize=16, fontweight="medium", rotation=0, va="center"
+    )
+
+    # Cleanups
     ax.tick_params(axis="both", which="major", length=0)
-
     plt.tight_layout()
 
-    # fig.show()
-    # plt.close(fig)
+    # 6. Saving: Use 600 DPI for raster or PDF/EPS for vector (Best for JNER)
+    # If saving as PNG, use 600 dpi. If PDF, dpi is less critical but good practice.
+    plt.savefig(file_name, dpi=600, bbox_inches="tight", transparent=False)
+
+    # plt.close(fig) # Uncomment to prevent display in notebooks if generating many
     return fig
