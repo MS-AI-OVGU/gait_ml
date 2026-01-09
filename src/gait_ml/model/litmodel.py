@@ -130,6 +130,12 @@ class LitSeq2Seq(L.LightningModule):
         )
         return loss
 
+    def pred_step(self, batch):
+        self.model(src, trg, teacher_forcing_ratio)
+        predictions = self(src, trg, teacher_forcing_ratio=0.0)
+        predictions_reshaped = predictions.reshape(-1, self.hparams.output_dim)
+        target_reshaped = trg.view(-1)
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
         scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)

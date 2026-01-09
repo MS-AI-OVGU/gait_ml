@@ -126,7 +126,7 @@ class Seq2Seq(nn.Module):
         bidirectional_factor = 2 if bidirectional else 1
         self.fc_out = nn.Linear(encoder.hidden_dim * bidirectional_factor, 3)
 
-    def forward(self, src, trg, teacher_forcing_ratio=0.5):
+    def forward(self, src, trg=None, teacher_forcing_ratio=0.5):
         """#TODO"""
         # batch_size = src.shape[0]
         # output_seq_len = trg.shape[1]

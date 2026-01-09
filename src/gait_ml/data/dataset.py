@@ -20,6 +20,7 @@ class GaitDataset(Dataset):
         acc_sheet_name="Accelerometer",
         gyr_sheet_name="Gyroscope",
         zscale=None,
+        zscale_stats=None,
     ):
         """
         GaitDataset is a PyTorch Dataset class for loading and processing gait data from CSV files.
@@ -31,7 +32,7 @@ class GaitDataset(Dataset):
         self.acc_sheet_name = acc_sheet_name
         self.gyr_sheet_name = gyr_sheet_name
         self.zscale = zscale
-        self.zscale_stats = None
+        self.zscale_stats = zscale_stats
 
         # Load data from CSV files
         self.data = self._load_data()
@@ -201,7 +202,6 @@ class GaitDataset(Dataset):
         # Standardize the first three channels (x, y, z) of the IMU data and keep the labels intact
         R = Rotation.from_matrix(np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]]))
         if self.zscale:
-            print("====++++Enters ZSCALE in GAITDATASET====++++")
             temp_array = all_arrays[:, :, :-1]
             # Align data to global coordinate system
             data_sf = [
