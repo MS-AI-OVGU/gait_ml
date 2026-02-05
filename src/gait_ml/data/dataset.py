@@ -9,6 +9,8 @@ from gaitmap.utils.rotations import rotate_dataset
 from gaitmap.preprocessing import sensor_alignment
 from scipy.signal import find_peaks, butter, sosfiltfilt
 
+from gait_ml import utils
+
 
 class GaitDataset(Dataset):
     def __init__(
@@ -50,7 +52,22 @@ class GaitDataset(Dataset):
                 df_acc = pd.read_excel(file, sheet_name=self.acc_sheet_name)
 
                 if df_gyr.shape[0] != df_acc.shape[0]:
-                    df_acc = df_acc.iloc[: df_gyr.shape[0], :]
+                    df_aligned = utils.align_imu_to_acc(
+                        df_acc.values[:, 0],
+                        df_acc.values[:, 1],
+                        df_acc.values[:, 2],
+                        df_acc.values[:, 3],
+                        df_gyr.values[:, 0],
+                        df_gyr.values[:, 1],
+                        df_gyr.values[:, 2],
+                        df_gyr.values[:, 3],
+                    )
+                    df_acc = pd.DataFrame(np.stack(df_aligned[:4]).T)
+                    df_gyr = pd.DataFrame(
+                        np.stack(
+                            [df_aligned[0], df_aligned[4], df_aligned[5], df_aligned[6]]
+                        ).T
+                    )
             else:
                 raise ValueError(
                     "Unsupported file format. Please provide an Excel file."

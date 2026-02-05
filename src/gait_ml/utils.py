@@ -216,13 +216,13 @@ def plot_bland_altman_publication(
     # Use axes label size
     ax.set_xlabel(
         # f"Average of {method1_name} and {method2_name} ({units})",
-        r"Mean Stance Proportion" + f"{units}",
+        r"Mean_" + f"{units}",
         fontsize=font_sizes["axes_label"],
         fontweight="bold",
     )
     ax.set_ylabel(
         # f"Difference (New-Reference){method1_name} and {method2_name} ({units})",
-        r"$\Delta$ Stance Proportion" + f"{units}",
+        r"$\Delta$_" + f"{units}",
         fontsize=font_sizes["axes_label"],
         fontweight="bold",
     )
@@ -344,3 +344,28 @@ def plot_confusion_matrix(
 
     # plt.close(fig) # Uncomment to prevent display in notebooks if generating many
     return fig
+
+
+def align_imu_to_acc(t_acc, ax, ay, az, t_gyr, wx, wy, wz):
+    """Align gyroscope data to accelerometer timestamps using linear interpolation."""
+    # 1) sort by time (np.interp expects increasing x)
+    ia = np.argsort(t_acc)
+    t_acc, ax, ay, az = t_acc[ia], ax[ia], ay[ia], az[ia]
+    ig = np.argsort(t_gyr)
+    t_gyr, wx, wy, wz = t_gyr[ig], wx[ig], wy[ig], wz[ig]
+
+    # 2) start both at 0
+    t_acc = t_acc - t_acc[0]
+    t_gyr = t_gyr - t_gyr[0]
+
+    # 3) use only overlapping time range (avoid extrapolation)
+    t0, t1 = max(t_acc[0], t_gyr[0]), min(t_acc[-1], t_gyr[-1])
+    m = (t_acc >= t0) & (t_acc <= t1)
+    t = t_acc[m]
+
+    # 4) interpolate gyro onto accel timestamps
+    wx_i = np.interp(t, t_gyr, wx)
+    wy_i = np.interp(t, t_gyr, wy)
+    wz_i = np.interp(t, t_gyr, wz)
+
+    return t, ax[m], ay[m], az[m], wx_i, wy_i, wz_i
