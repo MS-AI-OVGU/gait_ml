@@ -94,3 +94,11 @@ Pipfile.lock
 
 # Ignore wheel files
 *.whl
+
+backpain/
+multirun/
+wandb/
+/data
+outputs/
+
+*.npz
