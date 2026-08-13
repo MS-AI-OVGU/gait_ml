@@ -116,6 +116,293 @@ def lins_ccc(x, y):
     return numerator / denominator
 
 
+def plot_bland_altman_publicationv2(
+    method1,
+    method2,
+    method1_name="LE-GRU",
+    method2_name="Reference",
+    units="ms",
+    display_scale=1000.0,  # Convert input seconds to milliseconds
+    ax=None,
+    filename="bland_altman_plot.pdf",
+    feature_name="Stride time",
+    xpos=0.95,
+    ypos=0.90,
+):
+    """
+    Create a publication-ready Bland–Altman plot.
+
+    Parameters
+    ----------
+    method1, method2 : array-like
+        Paired measurements. Values are assumed to be in seconds when
+        display_scale=1000.
+    units : str
+        Display unit, e.g. "ms".
+    display_scale : float
+        Conversion from the input unit to the display unit.
+        Use 1000 for seconds -> milliseconds and 1 for no conversion.
+    """
+
+    font_sizes = {
+        "main": 18,
+        "axes_label": 25,
+        "tick_label": 25,
+        "metrics_box": 20,
+        "line_label": 20,
+    }
+
+    plt.style.use("seaborn-v0_8-white")
+
+    plt.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+            "font.size": font_sizes["main"],
+            "axes.labelsize": font_sizes["axes_label"],
+            "xtick.labelsize": font_sizes["tick_label"],
+            "ytick.labelsize": font_sizes["tick_label"],
+            "axes.linewidth": 1.5,
+        }
+    )
+
+    # Convert and validate paired inputs
+    method1 = np.asarray(method1, dtype=float).ravel()
+    method2 = np.asarray(method2, dtype=float).ravel()
+
+    if method1.shape != method2.shape:
+        raise ValueError("method1 and method2 must have the same shape.")
+
+    valid = np.isfinite(method1) & np.isfinite(method2)
+    method1 = method1[valid]
+    method2 = method2[valid]
+
+    if method1.size < 2:
+        raise ValueError("At least two valid paired observations are required.")
+
+    # Bland–Altman values in the original input unit
+    average = (method1 + method2) / 2.0
+    difference = method1 - method2
+
+    mean_diff = np.mean(difference)
+    std_diff = np.std(difference, ddof=1)
+    loa_upper = mean_diff + 1.96 * std_diff
+    loa_lower = mean_diff - 1.96 * std_diff
+
+    mae = mean_absolute_error(method2, method1)
+    rmse = np.sqrt(mean_squared_error(method2, method1))
+    # ccc = lins_ccc(method2, method1)
+    ccc, ccc_ci_lower, ccc_ci_upper = lins_ccc_with_ci(
+        method2,
+        method1,
+        confidence_level=0.95,
+        n_resamples=10_000,
+        random_seed=42,
+    )
+
+    # Convert values for display
+    average_display = average * display_scale
+    difference_display = difference * display_scale
+    mean_diff_display = mean_diff * display_scale
+    loa_upper_display = loa_upper * display_scale
+    loa_lower_display = loa_lower * display_scale
+    mae_display = mae * display_scale
+    rmse_display = rmse * display_scale
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+    else:
+        fig = ax.figure
+
+    ax.scatter(
+        average_display,
+        difference_display,
+        facecolors="none",
+        edgecolors="black",
+        s=60,
+        alpha=0.6,
+    )
+
+    ax.axhline(
+        mean_diff_display,
+        color="black",
+        linestyle="--",
+        linewidth=2,
+    )
+    ax.axhline(
+        loa_upper_display,
+        color="dimgray",
+        linestyle=":",
+        linewidth=2,
+    )
+    ax.axhline(
+        loa_lower_display,
+        color="dimgray",
+        linestyle=":",
+        linewidth=2,
+    )
+
+    # metrics_text = (
+    #     f"RMSE: {rmse_display:.1f} {units}\n"
+    #     f"MAE: {mae_display:.1f} {units}\n"
+    #     f"Lin's CCC: {ccc:.3f}"
+    # )
+    metrics_text = (
+        f"RMSE: {rmse_display:.1f} {units}\n"
+        f"MAE: {mae_display:.1f} {units}\n"
+        f"Lin's CCC: {ccc:.3f}\n"
+        f"95% CI: [{ccc_ci_lower:.3f}, {ccc_ci_upper:.3f}]"
+    )
+
+    ax.text(
+        xpos,
+        ypos,
+        metrics_text,
+        transform=ax.transAxes,
+        fontsize=font_sizes["metrics_box"],
+        verticalalignment="top",
+        horizontalalignment="right",
+        bbox=dict(
+            boxstyle="round",
+            facecolor="white",
+            edgecolor="black",
+            alpha=0.8,
+            linewidth=1,
+        ),
+    )
+
+    ax.set_xlabel(
+        f"Mean {feature_name} [{units}]",
+        fontsize=font_sizes["axes_label"],
+        fontweight="bold",
+    )
+    ax.set_ylabel(
+        rf"$\Delta$ {feature_name} [{units}]",
+        fontsize=font_sizes["axes_label"],
+        fontweight="bold",
+    )
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(
+        axis="both",
+        which="major",
+        direction="out",
+        width=1.5,
+        length=6,
+    )
+
+    # Ensure axis limits are finalized before positioning line labels
+    ax.relim()
+    ax.autoscale_view()
+
+    x_min, x_max = ax.get_xlim()
+    x_padding = 0.01 * (x_max - x_min)
+    x_text = x_max - x_padding
+
+    label_box = dict(
+        facecolor="white",
+        alpha=0.8,
+        edgecolor="none",
+        pad=0.1,
+    )
+
+    ax.text(
+        x_text,
+        mean_diff_display,
+        f"Bias: {mean_diff_display:.1f} {units}",
+        ha="right",
+        va="bottom",
+        fontsize=font_sizes["line_label"],
+        color="black",
+        bbox=label_box,
+    )
+
+    ax.text(
+        x_text,
+        loa_upper_display,
+        f"Upper 95% LoA: {loa_upper_display:.1f} {units}",
+        ha="right",
+        va="bottom",
+        fontsize=font_sizes["line_label"],
+        color="dimgray",
+        bbox=label_box,
+    )
+
+    ax.text(
+        x_text,
+        loa_lower_display,
+        f"Lower 95% LoA: {loa_lower_display:.1f} {units}",
+        ha="right",
+        va="top",
+        fontsize=font_sizes["line_label"],
+        color="dimgray",
+        bbox=label_box,
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        filename,
+        dpi=600,
+        bbox_inches="tight",
+        transparent=False,
+    )
+
+    return fig, ax
+
+
+from scipy.stats import bootstrap
+
+
+def lins_ccc_with_ci(
+    method1,
+    method2,
+    confidence_level=0.95,
+    n_resamples=10_000,
+    random_seed=42,
+):
+    """
+    Calculate Lin's CCC with a paired BCa bootstrap confidence interval.
+
+    Each row must represent one independent observational unit,
+    typically one participant.
+    """
+
+    method1 = np.asarray(method1, dtype=float).ravel()
+    method2 = np.asarray(method2, dtype=float).ravel()
+
+    if method1.shape != method2.shape:
+        raise ValueError("method1 and method2 must have the same shape.")
+
+    valid = np.isfinite(method1) & np.isfinite(method2)
+    method1 = method1[valid]
+    method2 = method2[valid]
+
+    if method1.size < 3:
+        raise ValueError("At least three valid paired observations are required.")
+
+    def ccc_statistic(x, y):
+        return lins_ccc(x, y)
+
+    ccc = ccc_statistic(method1, method2)
+
+    result = bootstrap(
+        data=(method1, method2),
+        statistic=ccc_statistic,
+        paired=True,
+        vectorized=False,
+        confidence_level=confidence_level,
+        n_resamples=n_resamples,
+        method="BCa",
+        rng=np.random.default_rng(random_seed),
+    )
+
+    ci_lower = float(result.confidence_interval.low)
+    ci_upper = float(result.confidence_interval.high)
+
+    return float(ccc), ci_lower, ci_upper
+
+
 def plot_bland_altman_publication(
     method1,
     method2,
@@ -124,6 +411,9 @@ def plot_bland_altman_publication(
     units="°",
     ax=None,
     filename="bland_altman_plot.pdf",
+    feature_name=None,
+    xpos=0.95,
+    ypos=0.9,
 ):
     """
     Creates a publication-ready Bland-Altman plot with easily modifiable fonts.
@@ -200,8 +490,8 @@ def plot_bland_altman_publication(
         boxstyle="round", facecolor="white", edgecolor="black", alpha=0.6, lw=1
     )
     ax.text(
-        0.95,
-        0.90,
+        xpos,
+        ypos,
         text_str,
         transform=ax.transAxes,
         fontsize=font_sizes["metrics_box"],  # Use metrics box size
@@ -216,13 +506,13 @@ def plot_bland_altman_publication(
     # Use axes label size
     ax.set_xlabel(
         # f"Average of {method1_name} and {method2_name} ({units})",
-        r"Mean_" + f"{units}",
+        f"Mean {feature_name}" + f"{units}",
         fontsize=font_sizes["axes_label"],
         fontweight="bold",
     )
     ax.set_ylabel(
         # f"Difference (New-Reference){method1_name} and {method2_name} ({units})",
-        r"$\Delta$_" + f"{units}",
+        r"$\Delta$ " + f"{feature_name}" + f"{units}",
         fontsize=font_sizes["axes_label"],
         fontweight="bold",
     )
@@ -369,3 +659,34 @@ def align_imu_to_acc(t_acc, ax, ay, az, t_gyr, wx, wy, wz):
     wz_i = np.interp(t, t_gyr, wz)
 
     return t, ax[m], ay[m], az[m], wx_i, wy_i, wz_i
+
+
+def calculate_stride_times(
+    label_array: np.ndarray,
+    sampling_rate_hz: float,
+    gait_cycle_limit: float = 300.0,
+) -> np.ndarray:
+    """Calculate stride times in seconds from consecutive IC events."""
+
+    label_array = np.atleast_1d(label_array)
+
+    # Find consecutive IC regions
+    ic_mask = label_array == 1
+    ic_starts = np.flatnonzero(ic_mask & ~np.r_[False, ic_mask[:-1]])
+    ic_ends = np.flatnonzero(ic_mask & ~np.r_[ic_mask[1:], False])
+
+    # Use the middle sample of each IC prediction
+    ic_indices = (ic_starts + ic_ends) // 2
+
+    if len(ic_indices) < 2:
+        return np.array([])
+
+    # Consecutive IC-to-IC durations
+    stride_durations = np.diff(ic_indices)
+
+    # Remove implausibly long cycles
+    stride_durations = stride_durations[
+        (stride_durations > 0) & (stride_durations <= gait_cycle_limit)
+    ]
+
+    return stride_durations / sampling_rate_hz

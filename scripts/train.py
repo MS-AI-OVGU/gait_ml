@@ -85,10 +85,12 @@ def main(config: DictConfig):
             dropout_prob=config.model.dropout_prob,
             learning_rate=config.model.learning_rate,
             teacher_forcing_ratio=config.model.teacher_forcing_ratio,
+            rnn_type=config.model.rnn_type,
+            loss_weighted=config.model.loss_weighted,
         )
 
         current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        run_name = f"ZscaledRerunExp4-Fold{fold + 1}-GRU-expandlabel{config.data.expand_labels}_{current_time}"
+        run_name = f"ZscaledRerunExp4-Fold{fold + 1}-{config.model.rnn_type}-expandlabel{config.data.expand_labels}_{current_time}_lossweighted={config.model.loss_weighted}"
         wandb_logger = WandbLogger(
             project=config.general.project_name,
             name=run_name,
