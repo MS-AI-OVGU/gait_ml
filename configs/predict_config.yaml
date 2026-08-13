@@ -1,0 +1,13 @@
+predict:
+  files: []                # list of file paths (relative to repo root or absolute). Override via CLI.
+  checkpoint: null         # path to checkpoint (.ckpt)
+  batch_size: 64
+  window_size: 256
+  step_size: 32
+  expand_labels: false
+  acc_sheet_name: "Sheet1"
+  num_workers: 4
+  zscale: false
+  output: "predictions.csv"
+  accelerator: "auto"
+  devices: 1

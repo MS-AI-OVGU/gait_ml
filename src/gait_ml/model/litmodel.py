@@ -29,9 +29,15 @@ class LitSeq2Seq(L.LightningModule):
         dropout_prob: float,
         learning_rate: float = 1e-3,
         teacher_forcing_ratio: float = 0.5,
+        rnn_type: str = "gru",
+        loss_weighted: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters()
+        if loss_weighted:
+            self.register_buffer(
+                "class_counts", torch.zeros(output_dim, dtype=torch.float32)
+            )
 
         # Initialize the Seq2Seq model
         encoder = Encoder(
@@ -40,12 +46,23 @@ class LitSeq2Seq(L.LightningModule):
             num_layers,
             dropout_prob,
             bidirectional=False,
-            type="gru",
+            type=rnn_type,
         )
         self.model = Seq2Seq(encoder, self.device, bidirectional=False)
 
         # Loss function
-        self.criterion = nn.CrossEntropyLoss(reduction="mean")
+        if loss_weighted:
+            weights = self.class_counts.sum() / (
+                self.hparams.output_dim * self.class_counts.clamp_min(1)
+            )
+            print("++++++++++++++++++++++++++++++++++++++++++")
+            print("Loss weights:", weights)
+            print("++++++++++++++++++++++++++++++++++++++++++")
+            self.criterion = nn.CrossEntropyLoss(
+                weight=weights.to(self.device), reduction="mean"
+            )
+        else:
+            self.criterion = nn.CrossEntropyLoss(reduction="mean")
 
         # Metrics
         if output_dim == 1:
@@ -67,6 +84,11 @@ class LitSeq2Seq(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         src, trg = batch
+        counts = torch.bincount(
+            trg.view(-1).long(), minlength=self.hparams.output_dim
+        ).float()
+        self.class_counts += counts
+
         predictions = self(
             src, trg, teacher_forcing_ratio=self.hparams.teacher_forcing_ratio
         )
