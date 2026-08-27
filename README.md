@@ -49,3 +49,6 @@ python -m pip install -e .
 <!-- Notes
 - Hydra override keys use the `predict.`, `data.` and `training.` namespaces from configs.
 - Adjust `window_size`, `step_size`, and model/data params to match training settings. -->
+
+
+When using this repo, please cite: https://doi.org/10.3390/bioengineering13080924
