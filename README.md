@@ -1,4 +1,4 @@
-# uGRU - unified Gated-Recurrent-Unit for automated gait event detection.
+# LE-GRU: Label-Expanded Gated-Recurrent-Unit for automated gait event detection.
 
 - Train an automated gait event detection algorithm using your own labelled dataset.
 - Run prediction on test dataset using a trained model.
